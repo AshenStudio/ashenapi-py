@@ -9,6 +9,7 @@ Access flow:
 
 Direct API access with Bearer token is also supported.
 """
+import base64
 import hashlib
 import hmac
 import json
@@ -64,13 +65,11 @@ def _verify_signed_cookie(value: str | None) -> dict | None:
 
 def _b64(s: str) -> str:
     """URL-safe base64 without padding."""
-    import base64
     return base64.urlsafe_b64encode(s.encode()).rstrip(b"=").decode()
 
 
 def _unb64(s: str) -> str:
     """Decode URL-safe base64 with padding restoration."""
-    import base64
     padding = 4 - len(s) % 4
     if padding != 4:
         s += "=" * padding
@@ -81,7 +80,7 @@ def _unb64(s: str) -> str:
 
 @router.post("/pgadmin/auth", status_code=status.HTTP_204_NO_CONTENT)
 async def pgadmin_auth(
-    admin=Depends(require_admin),
+    _=Depends(require_admin),
 ):
     """Authenticate for pgAdmin access.
 
