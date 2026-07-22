@@ -8,7 +8,7 @@
       "MaintenanceDB": "ashenapi",
       "Username": "ashenapi",
       "SSLMode": "prefer",
-      "PassFile": "/pgadmin4/pgpass"
+      "PassFile": "/tmp/pgpass"
     }
   }
 }
