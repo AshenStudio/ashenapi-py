@@ -97,3 +97,16 @@ class RetryRequestListDto(BaseModel):
 class UpdateRetryRequestDto(BaseModel):
     status: str
     result_message: str | None = None
+
+
+class DbQueryRequest(BaseModel):
+    query: str
+    params: dict | None = None
+
+
+class DbQueryResponse(BaseModel):
+    columns: list[str]
+    rows: list[list]
+    row_count: int
+    affected_rows: int
+    execution_time_ms: float

@@ -1,6 +1,9 @@
+import time
 import uuid
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File, Form, Response, status
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import (
@@ -17,6 +20,8 @@ from app.schemas.admin import (
     AdminReleaseDto,
     CompleteMigrationRequest,
     CreateRetryRequestDto,
+    DbQueryRequest,
+    DbQueryResponse,
     MigrationCountsDto,
     MigrationLogDto,
     MigrationLogListDto,
@@ -26,6 +31,68 @@ from app.schemas.admin import (
     RetryRequestListDto,
     UpdateRetryRequestDto,
 )
+from app.schemas.release import ReleaseDto, ReleaseListDto
+from app.services.admin_service import AdminService
+from app.services.auth_service import AuthService
+from app.services.release_service import ReleaseService
+
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
+
+# ── DB Query Editor ───────────────────────────────────────
+
+READONLY_RE = re.compile(
+    r"^\s*(SELECT|EXPLAIN|WITH|SHOW|DESCRIBE|VALUES)\b",
+    re.IGNORECASE,
+)
+
+
+@router.post("/db/query", response_model=DbQueryResponse)
+async def execute_db_query(
+    body: DbQueryRequest,
+    admin: Account = Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Execute a SQL query against the database.
+
+    Only read-only queries (SELECT, EXPLAIN, WITH, SHOW, DESCRIBE, VALUES)
+    are allowed. Returns column names and rows.
+    """
+    if not READONLY_RE.match(body.query.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only read-only queries are allowed (SELECT, EXPLAIN, WITH, SHOW, DESCRIBE, VALUES).",
+        )
+
+    start = time.perf_counter()
+    try:
+        result = await db.execute(text(body.query), body.params or {})
+        elapsed = time.perf_counter() - start
+
+        if result.returns_rows:
+            rows = result.fetchmany(500)  # Limit to 500 rows
+            columns = list(result.keys()) if result.keys() else []
+            return DbQueryResponse(
+                columns=columns,
+                rows=[[str(cell) if cell is not None else None for cell in row] for row in rows],
+                row_count=len(rows),
+                affected_rows=0,
+                execution_time_ms=round(elapsed * 1000, 2),
+            )
+        else:
+            return DbQueryResponse(
+                columns=[],
+                rows=[],
+                row_count=0,
+                affected_rows=result.rowcount or 0,
+                execution_time_ms=round(elapsed * 1000, 2),
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Query error: {str(e)}",
+        )
+
+
 from app.schemas.release import ReleaseDto, ReleaseListDto
 from app.services.admin_service import AdminService
 from app.services.auth_service import AuthService
