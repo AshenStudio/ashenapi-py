@@ -1,3 +1,4 @@
+import bcrypt
 import hashlib
 import hmac
 import re
@@ -6,14 +7,11 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from jose import jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.models.models import Account, RefreshToken
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Username: 3-32 chars, letters/digits/underscores
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,32}$")
@@ -40,7 +38,7 @@ class AuthService:
         account = Account(
             id=uuid4(),
             username=username,
-            password_hash=pwd_context.hash(password),
+            password_hash=bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(),
         )
         self.db.add(account)
         await self.db.flush()
@@ -49,7 +47,7 @@ class AuthService:
     async def login(self, username: str, password: str) -> tuple[dict, Account] | None:
         result = await self.db.execute(select(Account).where(Account.username == username))
         account = result.scalar_one_or_none()
-        if account is None or not pwd_context.verify(password, account.password_hash):
+        if account is None or not bcrypt.checkpw(password.encode(), account.password_hash.encode()):
             return None
 
         tokens = await self._generate_token_pair(account)
@@ -90,11 +88,11 @@ class AuthService:
     async def change_password(self, account_id: UUID, current_password: str, new_password: str) -> bool:
         result = await self.db.execute(select(Account).where(Account.id == account_id))
         account = result.scalar_one_or_none()
-        if account is None or not pwd_context.verify(current_password, account.password_hash):
+        if account is None or not bcrypt.checkpw(current_password.encode(), account.password_hash.encode()):
             return False
         if not _PASSWORD_RE.match(new_password):
             raise ValueError("Password must be at least 8 characters and contain uppercase, lowercase, and digit.")
-        account.password_hash = pwd_context.hash(new_password)
+        account.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
         account.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
@@ -105,7 +103,7 @@ class AuthService:
         if account is None:
             raise ValueError("Account not found.")
         password = new_password or self._generate_random_password()
-        account.password_hash = pwd_context.hash(password)
+        account.password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
         account.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return password

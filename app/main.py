@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
+import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,6 @@ from app.database import Base, async_session_factory, engine
 from app.models.models import Account
 from app.routers import admin, auth, health, identity, release, session
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 SECURITY_SCHEME_NAME = "bearerAuth"
 
@@ -97,7 +96,7 @@ async def _seed_admin(db: AsyncSession) -> None:
     admin = Account(
         id=UUID(int=secrets.randbits(128)),
         username=settings.admin_email,
-        password_hash=pwd_context.hash(settings.admin_password),
+        password_hash=bcrypt.hashpw(settings.admin_password.encode(), bcrypt.gensalt()).decode(),
         is_admin=True,
     )
     db.add(admin)
