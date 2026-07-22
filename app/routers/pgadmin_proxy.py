@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Request, Response
 from httpx import AsyncClient, AsyncHTTPTransport, RequestError
-from starlette.background import BackgroundTask
-
 router = APIRouter()
 
 # Persistent client with connection pooling
@@ -50,11 +48,14 @@ async def _proxy_request(path: str, request: Request) -> Response:
     # Read request body
     body = await request.body()
 
-    # Forward headers (strip hop-by-hop)
+    # Forward headers (strip hop-by-hop, add proxy context)
     headers = {}
     for key, value in request.headers.items():
         if key.lower() not in _HOP_BY_HOP:
             headers[key] = value
+    headers["X-Forwarded-Host"] = request.headers.get("host", "localhost")
+    headers["X-Forwarded-Proto"] = request.headers.get("x-forwarded-proto", "https")
+    headers["X-Forwarded-Prefix"] = "/pgadmin"
 
     try:
         client = _get_client()
