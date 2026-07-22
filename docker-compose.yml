@@ -22,8 +22,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - ashenapi-net
 
   ashenapi-api:
     build:
@@ -51,13 +49,7 @@ services:
       ashenapi-db:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - ashenapi-net
 
 volumes:
   ashenapi-pgdata:
   ashenapi-storage:
-
-networks:
-  ashenapi-net:
-    driver: bridge
