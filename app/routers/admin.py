@@ -70,7 +70,7 @@ async def execute_db_query(
 
         if result.returns_rows:
             rows = result.fetchmany(500)  # Limit to 500 rows
-            columns = list(result.keys()) if result.keys() else []
+            columns = list(result.keys())
             return DbQueryResponse(
                 columns=columns,
                 rows=[[str(cell) if cell is not None else None for cell in row] for row in rows],
