@@ -4,6 +4,14 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class AdminReleaseDto(BaseModel):
+    version: str
+    sha256: str
+    release_notes: str
+    published_at: datetime
+    is_latest: bool
+
+
 class ResetPasswordRequest(BaseModel):
     new_password: str | None = None
 
