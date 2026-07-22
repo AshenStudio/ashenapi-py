@@ -1,0 +1,63 @@
+# ──────────────────────────────────────────────────────────
+# AshenAPI (Python FastAPI) — Docker Compose
+#   ashenapi-api:  FastAPI REST API
+#   ashenapi-db:   PostgreSQL
+# ──────────────────────────────────────────────────────────
+name: ashenapi
+
+services:
+  ashenapi-db:
+    image: postgres:16-alpine
+    container_name: ashenapi-db
+    environment:
+      POSTGRES_USER: ashenapi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}
+      POSTGRES_DB: ashenapi
+    volumes:
+      - ashenapi-pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ashenapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ashenapi-net
+
+  ashenapi-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ashenapi-api
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}@ashenapi-db:5432/ashenapi"
+      JWT_KEY: ${JWT_SECRET:-change-this-jwt-key-must-be-at-least-32-bytes!}
+      JWT_ISSUER: ${JWT_ISSUER:-AshenAPI}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-AshenLauncher}
+      JWT_EXPIRES_IN_MINUTES: ${JWT_EXPIRES:-60}
+      REFRESH_TOKEN_KEY: ${REFRESH_TOKEN_KEY:-change-this-refresh-token-key-must-be-32-bytes!}
+      SERVER_KEY: ${SERVER_KEY:-change-this-server-key-must-be-32-bytes!}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminP@ssw0rd!}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5209,http://localhost:3000}
+      STORAGE_PATH: /app/storage
+      BASE_URL: ${BASE_URL:-http://localhost:8000}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ashenapi-storage:/app/storage
+    depends_on:
+      ashenapi-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ashenapi-net
+
+volumes:
+  ashenapi-pgdata:
+  ashenapi-storage:
+
+networks:
+  ashenapi-net:
+    driver: bridge
