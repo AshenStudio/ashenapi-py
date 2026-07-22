@@ -64,14 +64,13 @@ services:
       # Desktop mode — no login screen needed
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-      # Allow iframe embedding into the dashboard
-      PGADMIN_CONFIG_X_FRAME_OPTIONS: "'ALLOW-FROM *'"
+      # Allow iframe embedding via CSP (X-Frame-Options is deprecated)
       PGADMIN_CONFIG_CONTENT_SECURITY_POLICY: "frame-ancestors 'self' *;"
+      PGADMIN_CONFIG_X_FRAME_OPTIONS: "''"
       # Reload auto-configured servers on every start
       PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
     volumes:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
-      - ./pgadmin/pgpass:/pgadmin4/pgpass:ro
       - ashenapi-pgadmin:/var/lib/pgadmin
     ports:
       - "${PGADMIN_PORT:-5050}:80"
@@ -83,7 +82,10 @@ services:
       - /bin/sh
       - -c
       - |
-        chmod 0600 /pgadmin4/pgpass
+        # Generate pgpass at runtime so env vars are properly substituted
+        echo "ashenapi-db:5432:ashenapi:ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}" > /tmp/pgpass
+        chmod 0600 /tmp/pgpass
+        export PGPASSFILE=/tmp/pgpass
         exec /entrypoint.sh
 
 volumes:
