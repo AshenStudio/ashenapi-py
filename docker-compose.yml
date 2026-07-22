@@ -2,6 +2,14 @@
 # AshenAPI (Python FastAPI) — Docker Compose
 #   ashenapi-api:  FastAPI REST API
 #   ashenapi-db:   PostgreSQL
+#   ashenapi-pgadmin: pgAdmin database editor
+# ──────────────────────────────────────────────────────────
+# Portainer Web Editor friendly: all services use pre-built
+# images — no build context needed. Paste into Web Editor
+# and deploy.
+#
+# The API image is automatically rebuilt on every push to
+# main via .github/workflows/publish-api.yml.
 # ──────────────────────────────────────────────────────────
 name: ashenapi
 
@@ -24,10 +32,9 @@ services:
       retries: 5
 
   ashenapi-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/ashenstudio/ashenapi-py:latest
     container_name: ashenapi-api
+    pull_policy: always
     environment:
       # DB connection — constructed in Python with proper URL encoding
       DB_HOST: ashenapi-db
@@ -72,7 +79,6 @@ services:
       # Serve under /pgadmin/ prefix so the FastAPI proxy works without URL rewriting
       PGADMIN_CONFIG_APPLICATION_ROOT: "'/pgadmin'"
     volumes:
-      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
       - ashenapi-pgadmin:/var/lib/pgadmin
     depends_on:
       ashenapi-db:
@@ -86,6 +92,25 @@ services:
         echo "ashenapi-db:5432:ashenapi:ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}" > /tmp/pgpass
         chmod 0600 /tmp/pgpass
         export PGPASSFILE=/tmp/pgpass
+
+        # ── Create servers.json inline (no local file needed) ──
+        mkdir -p /pgadmin4
+        cat > /pgadmin4/servers.json << 'SERVERS_EOF'
+{
+  "Servers": {
+    "1": {
+      "Name": "AshenAPI",
+      "Group": "Ashen Studio",
+      "Host": "ashenapi-db",
+      "Port": 5432,
+      "MaintenanceDB": "ashenapi",
+      "Username": "ashenapi",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/pgpass"
+    }
+  }
+}
+SERVERS_EOF
 
         exec /entrypoint.sh
 
