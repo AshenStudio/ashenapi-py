@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import Base, async_session_factory, engine
 from app.models.models import Account
-from app.routers import admin, auth, health, identity, release, session
+from app.routers import admin, auth, health, identity, pgadmin_proxy, release, session
 
 
 SECURITY_SCHEME_NAME = "bearerAuth"
@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(session.router)
     app.include_router(release.router)
     app.include_router(admin.router)
+    app.include_router(pgadmin_proxy.router)
 
     return app
 

@@ -69,13 +69,11 @@ services:
       PGADMIN_CONFIG_X_FRAME_OPTIONS: "''"
       # Reload auto-configured servers on every start
       PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
-      # Enable HTTPS with a self-signed cert generated at startup
-      PGADMIN_ENABLE_TLS: "True"
+      # Serve under /pgadmin/ prefix so the FastAPI proxy works without URL rewriting
+      PGADMIN_CONFIG_APPLICATION_ROOT: "'/pgadmin'"
     volumes:
       - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
       - ashenapi-pgadmin:/var/lib/pgadmin
-    ports:
-      - "${PGADMIN_PORT:-5050}:443"
     depends_on:
       ashenapi-db:
         condition: service_healthy
@@ -84,18 +82,6 @@ services:
       - /bin/sh
       - -c
       - |
-        # ── Self-signed TLS certificate ────────────────────
-        # Generated at runtime so there are no files to manage.
-        # pgAdmin expects cert at /certs/server.cert and key at /certs/server.key
-        mkdir -p /certs
-        openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-          -keyout /certs/server.key \
-          -out /certs/server.cert \
-          -subj "/O=Ashen Studio/CN=ashenapi-pgadmin" \
-          2>/dev/null
-        chmod 0600 /certs/server.key
-        chown 5050:5050 /certs/server.key
-
         # ── pgpass for auto-connecting to PostgreSQL ──────
         echo "ashenapi-db:5432:ashenapi:ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}" > /tmp/pgpass
         chmod 0600 /tmp/pgpass
