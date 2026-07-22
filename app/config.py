@@ -1,4 +1,19 @@
+from urllib.parse import quote
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def build_database_url(
+    user: str = "ashenapi",
+    password: str = "AshenDBP@ssw0rd!",
+    host: str = "localhost",
+    port: int = 5432,
+    database: str = "ashenapi",
+    driver: str = "postgresql+asyncpg",
+) -> str:
+    """Build a database URL with the password properly URL-encoded."""
+    encoded_password = quote(password, safe="")
+    return f"{driver}://{user}:{encoded_password}@{host}:{port}/{database}"
 
 
 class Settings(BaseSettings):
@@ -10,7 +25,27 @@ class Settings(BaseSettings):
     )
 
     # ── Database ────────────────────────────────────────────
-    database_url: str = "postgresql+asyncpg://ashenapi:AshenDBP@ssw0rd!@localhost:5432/ashenapi"
+    # If DATABASE_URL is explicitly set, use it as-is (overrides individual parts).
+    database_url: str | None = None
+
+    # Individual DB connection parts (used when DATABASE_URL is not set).
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_user: str = "ashenapi"
+    db_password: str = "AshenDBP@ssw0rd!"
+    db_name: str = "ashenapi"
+
+    @property
+    def resolved_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        return build_database_url(
+            user=self.db_user,
+            password=self.db_password,
+            host=self.db_host,
+            port=self.db_port,
+            database=self.db_name,
+        )
 
     # ── JWT ─────────────────────────────────────────────────
     jwt_key: str = "change-this-jwt-key-must-be-at-least-32-bytes!"

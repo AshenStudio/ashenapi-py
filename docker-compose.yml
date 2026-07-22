@@ -29,7 +29,12 @@ services:
       dockerfile: Dockerfile
     container_name: ashenapi-api
     environment:
-      DATABASE_URL: "postgresql+asyncpg://ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}@ashenapi-db:5432/ashenapi"
+      # DB connection — constructed in Python with proper URL encoding
+      DB_HOST: ashenapi-db
+      DB_PORT: "5432"
+      DB_USER: ashenapi
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}
+      DB_NAME: ashenapi
       JWT_KEY: ${JWT_SECRET:-change-this-jwt-key-must-be-at-least-32-bytes!}
       JWT_ISSUER: ${JWT_ISSUER:-AshenAPI}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-AshenLauncher}
