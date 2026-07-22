@@ -1,0 +1,1 @@
+ashenapi-db:5432:ashenapi:ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}

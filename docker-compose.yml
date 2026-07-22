@@ -55,6 +55,38 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  ashenapi-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ashenapi-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ashenstudio.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgAdminP@ssw0rd!}
+      # Desktop mode — no login screen needed
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      # Allow iframe embedding into the dashboard
+      PGADMIN_CONFIG_X_FRAME_OPTIONS: "'ALLOW-FROM *'"
+      PGADMIN_CONFIG_CONTENT_SECURITY_POLICY: "frame-ancestors 'self' *;"
+      # Reload auto-configured servers on every start
+      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
+    volumes:
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./pgadmin/pgpass:/pgadmin4/pgpass:ro
+      - ashenapi-pgadmin:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      ashenapi-db:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        chmod 0600 /pgadmin4/pgpass
+        exec /entrypoint.sh
+
 volumes:
   ashenapi-pgdata:
   ashenapi-storage:
+  ashenapi-pgadmin:
