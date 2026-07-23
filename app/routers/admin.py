@@ -18,8 +18,11 @@ from app.schemas.admin import (
     AdminAccountDto,
     AdminAccountListDto,
     AdminReleaseDto,
+    ColumnInfo,
     CompleteMigrationRequest,
     CreateRetryRequestDto,
+    DbExecuteRequest,
+    DbExecuteResponse,
     DbQueryRequest,
     DbQueryResponse,
     MigrationCountsDto,
@@ -29,6 +32,9 @@ from app.schemas.admin import (
     ResetPasswordResponse,
     RetryRequestDto,
     RetryRequestListDto,
+    TableInfo,
+    TableInfoList,
+    TableSchema,
     UpdateRetryRequestDto,
 )
 from app.schemas.release import ReleaseDto, ReleaseListDto
