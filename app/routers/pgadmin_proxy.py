@@ -20,6 +20,7 @@ from httpx import AsyncClient, AsyncHTTPTransport, RequestError
 
 from app.dependencies import require_admin
 from app.config import settings
+from app.models.models import Account
 
 router = APIRouter()
 
@@ -80,7 +81,7 @@ def _unb64(s: str) -> str:
 
 @router.post("/pgadmin/auth", status_code=status.HTTP_204_NO_CONTENT)
 async def pgadmin_auth(
-    _=Depends(require_admin),
+    admin: Account = Depends(require_admin),
 ):
     """Authenticate for pgAdmin access.
 

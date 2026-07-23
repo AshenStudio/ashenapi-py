@@ -65,6 +65,7 @@ services:
   ashenapi-pgadmin:
     image: dpage/pgadmin4:latest
     container_name: ashenapi-pgadmin
+    user: root
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ashenstudio.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgAdminP@ssw0rd!}
@@ -72,7 +73,7 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "False"
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
       # Allow iframe embedding via CSP (X-Frame-Options is deprecated)
-      PGADMIN_CONFIG_CONTENT_SECURITY_POLICY: "frame-ancestors 'self' *;"
+      PGADMIN_CONFIG_CONTENT_SECURITY_POLICY: '"frame-ancestors ''self'' *;"'
       PGADMIN_CONFIG_X_FRAME_OPTIONS: "''"
       # Reload auto-configured servers on every start
       PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"

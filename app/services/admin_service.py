@@ -81,7 +81,7 @@ class AdminService:
             select(MigrationLog.status, func.count(MigrationLog.id))
             .group_by(MigrationLog.status)
         )
-        counts = {"Pending": 0, "Failed": 0, "Completed": 0}
+        counts = {"pending": 0, "failed": 0, "completed": 0}
         for status, count in result.all():
             counts[status] = count
         return counts
