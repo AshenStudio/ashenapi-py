@@ -93,14 +93,6 @@ async def execute_db_query(
         )
 
 
-from app.schemas.release import ReleaseDto, ReleaseListDto
-from app.services.admin_service import AdminService
-from app.services.auth_service import AuthService
-from app.services.release_service import ReleaseService
-
-router = APIRouter(prefix="/api/admin", tags=["Admin"])
-
-
 # ── Accounts ──────────────────────────────────────────────
 
 @router.get("/accounts", response_model=AdminAccountListDto)
