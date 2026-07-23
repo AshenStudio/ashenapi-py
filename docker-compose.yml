@@ -2,7 +2,6 @@
 # AshenAPI (Python FastAPI) — Docker Compose
 #   ashenapi-api:  FastAPI REST API
 #   ashenapi-db:   PostgreSQL
-#   ashenapi-pgadmin: pgAdmin database editor
 # ──────────────────────────────────────────────────────────
 # Portainer Web Editor friendly: all services use pre-built
 # images — no build context needed. Paste into Web Editor
@@ -36,7 +35,6 @@ services:
     container_name: ashenapi-api
     pull_policy: always
     environment:
-      # DB connection — constructed in Python with proper URL encoding
       DB_HOST: ashenapi-db
       DB_PORT: "5432"
       DB_USER: ashenapi
@@ -62,60 +60,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  ashenapi-pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ashenapi-pgadmin
-    user: root
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@ashenstudio.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgAdminP@ssw0rd!}
-      # Desktop mode — no login screen needed
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-      # Allow iframe embedding via CSP (X-Frame-Options is deprecated)
-      PGADMIN_CONFIG_CONTENT_SECURITY_POLICY: '"frame-ancestors ''self'' *;"'
-      PGADMIN_CONFIG_X_FRAME_OPTIONS: "''"
-      # Reload auto-configured servers on every start
-      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
-      # Serve under /pgadmin/ prefix so the FastAPI proxy works without URL rewriting
-      PGADMIN_CONFIG_APPLICATION_ROOT: "'/pgadmin'"
-    volumes:
-      - ashenapi-pgadmin:/var/lib/pgadmin
-    depends_on:
-      ashenapi-db:
-        condition: service_healthy
-    restart: unless-stopped
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        # ── pgpass for auto-connecting to PostgreSQL ──────
-        echo "ashenapi-db:5432:ashenapi:ashenapi:${POSTGRES_PASSWORD:-AshenDBP@ssw0rd!}" > /tmp/pgpass
-        chmod 0600 /tmp/pgpass
-        export PGPASSFILE=/tmp/pgpass
-
-        # ── Create servers.json inline (no local file needed) ──
-        mkdir -p /pgadmin4
-        cat > /pgadmin4/servers.json << 'SERVERS_EOF'
-        {
-          "Servers": {
-            "1": {
-              "Name": "AshenAPI",
-              "Group": "Ashen Studio",
-              "Host": "ashenapi-db",
-              "Port": 5432,
-              "MaintenanceDB": "ashenapi",
-              "Username": "ashenapi",
-              "SSLMode": "prefer",
-              "PassFile": "/tmp/pgpass"
-            }
-          }
-        }
-        SERVERS_EOF
-
-        exec /entrypoint.sh
-
 volumes:
   ashenapi-pgdata:
   ashenapi-storage:
-  ashenapi-pgadmin:
