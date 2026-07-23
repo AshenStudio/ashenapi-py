@@ -96,21 +96,21 @@ services:
         # ── Create servers.json inline (no local file needed) ──
         mkdir -p /pgadmin4
         cat > /pgadmin4/servers.json << 'SERVERS_EOF'
-{
-  "Servers": {
-    "1": {
-      "Name": "AshenAPI",
-      "Group": "Ashen Studio",
-      "Host": "ashenapi-db",
-      "Port": 5432,
-      "MaintenanceDB": "ashenapi",
-      "Username": "ashenapi",
-      "SSLMode": "prefer",
-      "PassFile": "/tmp/pgpass"
-    }
-  }
-}
-SERVERS_EOF
+        {
+          "Servers": {
+            "1": {
+              "Name": "AshenAPI",
+              "Group": "Ashen Studio",
+              "Host": "ashenapi-db",
+              "Port": 5432,
+              "MaintenanceDB": "ashenapi",
+              "Username": "ashenapi",
+              "SSLMode": "prefer",
+              "PassFile": "/tmp/pgpass"
+            }
+          }
+        }
+        SERVERS_EOF
 
         exec /entrypoint.sh
 
