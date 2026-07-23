@@ -25,6 +25,7 @@ class AdminAccountDto(BaseModel):
     username: str
     created_at: datetime
     identity_count: int
+    is_admin: bool = False
 
 
 class AdminAccountListDto(BaseModel):
@@ -97,6 +98,10 @@ class RetryRequestListDto(BaseModel):
 class UpdateRetryRequestDto(BaseModel):
     status: str
     result_message: str | None = None
+
+
+class SetAdminRequest(BaseModel):
+    is_admin: bool
 
 
 class DbQueryRequest(BaseModel):

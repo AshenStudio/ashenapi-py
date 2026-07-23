@@ -38,6 +38,7 @@ class AdminService:
                 "username": acc.username,
                 "created_at": acc.created_at,
                 "identity_count": identity_count,
+                "is_admin": acc.is_admin,
             })
 
         return items, total_count
@@ -162,5 +163,17 @@ class AdminService:
         request.result_message = result_message
         if status in ("Completed", "Failed"):
             request.completed_at = datetime.now(timezone.utc)
+        await self.db.flush()
+        return True
+
+    # ── Admin status management ──────────────────────────────
+
+    async def set_admin(self, account_id: UUID, is_admin: bool) -> bool:
+        result = await self.db.execute(select(Account).where(Account.id == account_id))
+        account = result.scalar_one_or_none()
+        if account is None:
+            return False
+        account.is_admin = is_admin
+        account.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True

@@ -32,6 +32,7 @@ from app.schemas.admin import (
     ResetPasswordResponse,
     RetryRequestDto,
     RetryRequestListDto,
+    SetAdminRequest,
     TableInfo,
     TableInfoList,
     TableSchema,
@@ -609,6 +610,27 @@ async def get_retry_request(
                 completed_at=r.completed_at,
             )
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Retry request not found.")
+
+
+# ── Admin Status Management ──────────────────────────────
+
+@router.patch("/accounts/{account_id}/set-admin", status_code=status.HTTP_204_NO_CONTENT)
+async def set_account_admin(
+    account_id: str,
+    body: SetAdminRequest,
+    admin: Account = Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Set or remove admin status on an account. Only admins can manage admin privileges."""
+    try:
+        uid = uuid.UUID(account_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid account ID.")
+
+    service = AdminService(db)
+    success = await service.set_admin(uid, body.is_admin)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
 
 
 @router.patch("/migrations/retry-requests/{request_id}", status_code=status.HTTP_204_NO_CONTENT)

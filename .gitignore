@@ -1,0 +1,41 @@
+# ── Python bytecode & caches ──
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+*.so
+
+# ── Virtual environments ──
+.env
+.venv
+venv/
+env/
+ENV/
+
+# ── IDE / editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS junk ──
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ── Database / runtime artifacts ──
+*.db
+*.db-shm
+*.db-wal
+
+# ── Alembic / migrations (generated) ──
+alembic/versions/*.py
+!alembic/versions/.gitkeep
+
+# ── Testing ──
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+*.cover
