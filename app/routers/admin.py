@@ -3,7 +3,7 @@ import uuid
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, UploadFile, File, Form, Response, status
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import (
@@ -18,6 +18,8 @@ from app.schemas.admin import (
     AdminAccountDto,
     AdminAccountListDto,
     AdminReleaseDto,
+    BootstrapAdminRequest,
+    BootstrapAdminResponse,
     ColumnInfo,
     CompleteMigrationRequest,
     CreateRetryRequestDto,
@@ -32,7 +34,6 @@ from app.schemas.admin import (
     ResetPasswordResponse,
     RetryRequestDto,
     RetryRequestListDto,
-    SetAdminRequest,
     TableInfo,
     TableInfoList,
     TableSchema,
@@ -560,11 +561,12 @@ async def get_retry_requests(
 
 @router.get("/migrations/retry-requests/pending")
 async def get_pending_retry_request(
+    minimum_age_seconds: int = Query(0, ge=0),
     x_ashen_server_key: str = Depends(verify_server_key),
     db: AsyncSession = Depends(get_db_session),
 ):
     service = AdminService(db)
-    request = await service.claim_next_pending_retry_request()
+    request = await service.claim_next_pending_retry_request(minimum_age_seconds)
     if request is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     return RetryRequestDto(
@@ -614,23 +616,32 @@ async def get_retry_request(
 
 # ── Admin Status Management ──────────────────────────────
 
-@router.patch("/accounts/{account_id}/set-admin", status_code=status.HTTP_204_NO_CONTENT)
-async def set_account_admin(
-    account_id: str,
-    body: SetAdminRequest,
-    admin: Account = Depends(require_admin),
+@router.post("/bootstrap", response_model=BootstrapAdminResponse)
+async def bootstrap_admin(
+    body: BootstrapAdminRequest,
+    server_key: str = Depends(verify_server_key),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Set or remove admin status on an account. Only admins can manage admin privileges."""
-    try:
-        uid = uuid.UUID(account_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid account ID.")
+    """
+    Bootstrap the first admin user using the server key.
+
+    This is the only endpoint that can grant admin without already being an admin.
+    It requires the X-Ashen-Server-Key header.
+    """
+    result = await db.execute(select(Account).where(Account.username == body.username))
+    account = result.scalar_one_or_none()
+    if account is None:
+        return BootstrapAdminResponse(success=False, message=f"Account '{body.username}' not found.")
+
+    if account.is_admin:
+        return BootstrapAdminResponse(success=True, message=f"Account '{body.username}' is already an admin.")
 
     service = AdminService(db)
-    success = await service.set_admin(uid, body.is_admin)
-    if not success:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    success = await service.grant_admin(account.id)
+    if success:
+        return BootstrapAdminResponse(success=True, message=f"Admin privileges granted to '{body.username}'.")
+    else:
+        return BootstrapAdminResponse(success=False, message="Failed to grant admin privileges.")
 
 
 @router.patch("/migrations/retry-requests/{request_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -90,6 +90,10 @@ async def _seed_admin(db: AsyncSession) -> None:
     result = await db.execute(select(Account).where(Account.username == settings.admin_email))
     existing = result.scalar_one_or_none()
     if existing is not None:
+        if not existing.is_admin:
+            existing.is_admin = True
+            existing.updated_at = datetime.now(timezone.utc)
+            await db.commit()
         return
 
     admin = Account(

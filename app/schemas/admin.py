@@ -100,10 +100,6 @@ class UpdateRetryRequestDto(BaseModel):
     result_message: str | None = None
 
 
-class SetAdminRequest(BaseModel):
-    is_admin: bool
-
-
 class DbQueryRequest(BaseModel):
     query: str
     params: dict | None = None
@@ -154,3 +150,12 @@ class TableSchema(BaseModel):
     columns: list[ColumnInfo]
     primary_key: str | None = None
     row_count: int | None = None
+
+
+class BootstrapAdminRequest(BaseModel):
+    username: str
+
+
+class BootstrapAdminResponse(BaseModel):
+    success: bool
+    message: str

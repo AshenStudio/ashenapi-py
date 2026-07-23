@@ -44,7 +44,9 @@ class AdminService:
         return items, total_count
 
     async def delete_account(self, account_id: UUID) -> bool:
-        result = await self.db.execute(select(Account).where(Account.id == account_id))
+        result = await self.db.execute(
+            select(Account).where(Account.id == account_id).with_for_update(skip_locked=True)
+        )
         account = result.scalar_one_or_none()
         if account is None:
             return False
@@ -88,7 +90,13 @@ class AdminService:
         return counts
 
     async def complete_migration(self, log_id: UUID, success: bool, error_message: str | None = None) -> bool:
-        result = await self.db.execute(select(MigrationLog).where(MigrationLog.id == log_id))
+        # Use FOR UPDATE to prevent two servers from updating the same migration
+        # log concurrently (e.g. crash-recovery retry overlap).
+        result = await self.db.execute(
+            select(MigrationLog)
+            .where(MigrationLog.id == log_id)
+            .with_for_update(skip_locked=True)
+        )
         log = result.scalar_one_or_none()
         if log is None:
             return False
@@ -136,16 +144,25 @@ class AdminService:
         )
         return list(result.scalars().all()), total_count
 
-    async def claim_next_pending_retry_request(self) -> MigrationRetryRequest | None:
-        stale_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
+    async def claim_next_pending_retry_request(self, minimum_age_seconds: int = 0) -> MigrationRetryRequest | None:
+        now = datetime.now(timezone.utc)
+        stale_threshold = now - timedelta(minutes=15)
+        age_threshold = now - timedelta(seconds=minimum_age_seconds)
+        # Atomically claim the next eligible request using FOR UPDATE SKIP LOCKED.
+        # The SELECT locks the row within this transaction, while SKIP LOCKED
+        # makes it non-blocking — if another server has already locked the row,
+        # this query simply skips it and returns the next eligible one (or None).
+        # This eliminates the race window between the SELECT and the subsequent
+        # UPDATE (setting status to InProgress) entirely.
         result = await self.db.execute(
             select(MigrationRetryRequest)
             .where(
-                (MigrationRetryRequest.status == "Pending") |
+                ((MigrationRetryRequest.status == "Pending") & (MigrationRetryRequest.created_at < age_threshold)) |
                 ((MigrationRetryRequest.status == "InProgress") & (MigrationRetryRequest.created_at < stale_threshold))
             )
             .order_by(MigrationRetryRequest.created_at)
             .limit(1)
+            .with_for_update(skip_locked=True)
         )
         request = result.scalar_one_or_none()
         if request is None:
@@ -155,7 +172,13 @@ class AdminService:
         return request
 
     async def update_retry_request(self, request_id: UUID, status: str, result_message: str | None = None) -> bool:
-        result = await self.db.execute(select(MigrationRetryRequest).where(MigrationRetryRequest.id == request_id))
+        # Use FOR UPDATE to prevent two servers from updating the same retry
+        # request concurrently (e.g. crash-recovery retry overlap).
+        result = await self.db.execute(
+            select(MigrationRetryRequest)
+            .where(MigrationRetryRequest.id == request_id)
+            .with_for_update(skip_locked=True)
+        )
         request = result.scalar_one_or_none()
         if request is None:
             return False
@@ -168,12 +191,15 @@ class AdminService:
 
     # ── Admin status management ──────────────────────────────
 
-    async def set_admin(self, account_id: UUID, is_admin: bool) -> bool:
-        result = await self.db.execute(select(Account).where(Account.id == account_id))
+    async def grant_admin(self, account_id: UUID) -> bool:
+        """Grant admin privileges to an account. Only grants — never revokes."""
+        result = await self.db.execute(
+            select(Account).where(Account.id == account_id).with_for_update(skip_locked=True)
+        )
         account = result.scalar_one_or_none()
         if account is None:
             return False
-        account.is_admin = is_admin
+        account.is_admin = True
         account.updated_at = datetime.now(timezone.utc)
         await self.db.flush()
         return True
