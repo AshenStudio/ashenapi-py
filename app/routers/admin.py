@@ -93,6 +93,139 @@ async def execute_db_query(
         )
 
 
+# ── DB Write / Table Browser ──────────────────────────────
+
+
+@router.post("/db/execute", response_model=DbExecuteResponse)
+async def execute_db_write(
+    body: DbExecuteRequest,
+    admin: Account = Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Execute write queries (INSERT, UPDATE, DELETE, ALTER, etc.).
+
+    Requires admin privileges. Returns affected row count and execution time.
+    """
+    start = time.perf_counter()
+    try:
+        result = await db.execute(text(body.query), body.params or {})
+        await db.commit()
+        elapsed = time.perf_counter() - start
+        affected = result.rowcount or 0
+        return DbExecuteResponse(
+            success=True,
+            affected_rows=affected,
+            execution_time_ms=round(elapsed * 1000, 2),
+            message=f"Query executed successfully. {affected} rows affected.",
+        )
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Query error: {str(e)}",
+        )
+
+
+@router.get("/db/tables", response_model=TableInfoList)
+async def list_tables(
+    admin: Account = Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """List all tables in the database with estimated row counts."""
+    query = text("""
+        SELECT
+            t.table_name,
+            t.table_schema,
+            (SELECT reltuples::bigint FROM pg_class WHERE oid = (quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))::regclass) AS row_count
+        FROM information_schema.tables t
+        WHERE t.table_schema NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY t.table_schema, t.table_name
+    """)
+    try:
+        result = await db.execute(query)
+        rows = result.fetchall()
+        tables = [
+            TableInfo(table_name=row[0], table_schema=row[1], row_count=row[2])
+            for row in rows
+        ]
+        return TableInfoList(tables=tables)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to list tables: {str(e)}",
+        )
+
+
+@router.get("/db/tables/{table_name}/schema", response_model=TableSchema)
+async def get_table_schema(
+    table_name: str,
+    schema: str = Query("public", alias="schema"),
+    admin: Account = Depends(require_admin),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Get the schema (columns, types, constraints) for a table."""
+    try:
+        # Get column info
+        col_query = text("""
+            SELECT
+                c.column_name,
+                c.data_type,
+                c.is_nullable::boolean,
+                c.column_default,
+                c.character_maximum_length,
+                CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END AS is_primary_key
+            FROM information_schema.columns c
+            LEFT JOIN (
+                SELECT ku.column_name
+                FROM information_schema.table_constraints tc
+                JOIN information_schema.key_column_usage ku
+                    ON tc.constraint_name = ku.constraint_name
+                    AND tc.table_schema = ku.table_schema
+                WHERE tc.constraint_type = 'PRIMARY KEY'
+                    AND tc.table_schema = :schema
+                    AND tc.table_name = :table
+            ) pk ON c.column_name = pk.column_name
+            WHERE c.table_schema = :schema
+                AND c.table_name = :table
+            ORDER BY c.ordinal_position
+        """)
+        result = await db.execute(col_query, {"schema": schema, "table": table_name})
+        columns = []
+        primary_key = None
+        for row in result.fetchall():
+            col = ColumnInfo(
+                column_name=row[0],
+                data_type=row[1],
+                is_nullable=row[2],
+                column_default=row[3],
+                character_maximum_length=row[4],
+                is_primary_key=row[5],
+            )
+            if row[5]:
+                primary_key = row[0]
+            columns.append(col)
+
+        # Get row count
+        safe_schema = schema.replace('"', '""')
+        safe_table = table_name.replace('"', '""')
+        count_query = text(f'SELECT COUNT(*) FROM "{safe_schema}"."{safe_table}"')
+        count_result = await db.execute(count_query)
+        row_count = count_result.scalar()
+
+        return TableSchema(
+            table_name=table_name,
+            table_schema=schema,
+            columns=columns,
+            primary_key=primary_key,
+            row_count=row_count,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to get schema: {str(e)}",
+        )
+
+
 # ── Accounts ──────────────────────────────────────────────
 
 @router.get("/accounts", response_model=AdminAccountListDto)

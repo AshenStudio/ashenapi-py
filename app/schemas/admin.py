@@ -110,3 +110,42 @@ class DbQueryResponse(BaseModel):
     row_count: int
     affected_rows: int
     execution_time_ms: float
+
+
+class DbExecuteRequest(BaseModel):
+    query: str
+    params: dict | None = None
+
+
+class DbExecuteResponse(BaseModel):
+    success: bool
+    affected_rows: int
+    execution_time_ms: float
+    message: str = ""
+
+
+class TableInfo(BaseModel):
+    table_name: str
+    table_schema: str = "public"
+    row_count: int | None = None
+
+
+class TableInfoList(BaseModel):
+    tables: list[TableInfo]
+
+
+class ColumnInfo(BaseModel):
+    column_name: str
+    data_type: str
+    is_nullable: bool
+    column_default: str | None = None
+    is_primary_key: bool = False
+    character_maximum_length: int | None = None
+
+
+class TableSchema(BaseModel):
+    table_name: str
+    table_schema: str = "public"
+    columns: list[ColumnInfo]
+    primary_key: str | None = None
+    row_count: int | None = None
