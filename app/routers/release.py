@@ -51,7 +51,12 @@ async def get_modpack_version(db: AsyncSession = Depends(get_db_session)):
 @router.get("/files/{release_type}/{version}/{file_name}")
 async def download_file(release_type: str, version: str, file_name: str, db: AsyncSession = Depends(get_db_session)):
     service = ReleaseService(db)
-    content = await service.get_file(release_type, version)
+    # Normalize the release_type from URL (e.g. "modpack") to match the
+    # canonical DB casing ("Modpack") used by the publish and version
+    # endpoints. Without this, the file download always 404s because
+    # the DB stores "Modpack" / "Launcher" with capital first letter.
+    normalized_type = release_type.capitalize()
+    content = await service.get_file(normalized_type, version)
     if content is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found.")
 
